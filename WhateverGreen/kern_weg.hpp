@@ -11,11 +11,8 @@
 #include <Headers/kern_iokit.hpp>
 #include <Headers/kern_devinfo.hpp>
 
-#include "kern_cdf.hpp"
-#include "kern_igfx.hpp"
-#include "kern_ngfx.hpp"
 #include "kern_rad.hpp"
-#include "kern_shiki.hpp"
+
 
 class IOFramebuffer;
 
@@ -33,17 +30,6 @@ private:
 	/**
 	 *  High resolution unlocker instances
 	 */
-	CDF cdf;
-
-	/**
-	 *  Intel GPU fixes instances
-	 */
-	IGFX igfx;
-
-	/**
-	 *  NVIDIA GPU fixes instance
-	 */
-	NGFX ngfx;
 
 	/**
 	 *  Radeon GPU fixes instance
@@ -53,7 +39,7 @@ private:
 	/**
 	 *  Hardware acceleration and FairPlay fixes instance
 	 */
-	SHIKI shiki;
+	
 
 	/**
 	 *  FB_DETECT   autodetects based on the installed GPU.

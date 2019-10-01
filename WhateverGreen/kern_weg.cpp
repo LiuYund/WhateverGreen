@@ -83,19 +83,12 @@ void WEG::init() {
 	if (appleBacklightPatch != APPLBKL_OFF)
 		lilu.onKextLoad(&kextBacklight);
 
-	igfx.init();
-	ngfx.init();
 	rad.init();
-	shiki.init();
-	cdf.init();
+
 }
 
 void WEG::deinit() {
-	igfx.deinit();
-	ngfx.deinit();
 	rad.deinit();
-	shiki.deinit();
-	cdf.deinit();
 }
 
 void WEG::processKernel(KernelPatcher &patcher) {
@@ -191,11 +184,7 @@ void WEG::processKernel(KernelPatcher &patcher) {
 			kextBacklight.switchOff();
 		}
 
-		igfx.processKernel(patcher, devInfo);
-		ngfx.processKernel(patcher, devInfo);
 		rad.processKernel(patcher, devInfo);
-		shiki.processKernel(patcher, devInfo);
-		cdf.processKernel(patcher, devInfo);
 
 		DeviceInfo::deleter(devInfo);
 	}
@@ -255,17 +244,9 @@ void WEG::processKext(KernelPatcher &patcher, size_t index, mach_vm_address_t ad
 		patcher.applyLookupPatch(&patch);
 	}
 
-	if (igfx.processKext(patcher, index, address, size))
-		return;
-
-	if (ngfx.processKext(patcher, index, address, size))
-		return;
-
 	if (rad.processKext(patcher, index, address, size))
 		return;
 
-	if (cdf.processKext(patcher, index, address, size))
-		return;
 }
 
 void WEG::processBuiltinProperties(IORegistryEntry *device, DeviceInfo *info) {
