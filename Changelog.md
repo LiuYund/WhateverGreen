@@ -1,11 +1,18 @@
 WhateverGreen Changelog
 =======================
 #### v1.3.5
+- Added Lilu 1.4.0 support, which is now the minimum supported version
 - Dropped legacy boot arguments (`-shikigva`, `-shikifps`)
 - Fixed handling `agdpmod` GPU property (in IGPUs and in conjunction with boot-arg)
 - Added `-wegtree` boot argument to force device renaming
 - Fixed FairPlay DRM playback patches on 10.15
 - Added `shikigva` and `shiki-id` aliases in IORegistry
+- Added `applbkl` aliases to IORegistry (data, 32-bit)
+- Added `applbkl-name` and `applbkl-data` IORegistry data keys to provide custom backlight data
+- Fixed applying CoreFP patches on Apple firmware, when they are not needed
+- Added `shikigva=16` (repurposed) property to use AMD hardware DRM decoder in select apps
+- Added `shikigva=128` (repurposed) property to use hardware decoder for FairPlay 1.0 (can be used as `shikigva=144`)
+- Do not disable DRM patches when `shikigva` is used even on Apple hardware for MacPro5,1 support
 
 #### v1.3.4
 - Added support for disabled AppleGraphicsDevicePolicy in AMD drivers on 10.15.1

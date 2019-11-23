@@ -143,11 +143,12 @@ void WEG::init() {
 		lilu.onKextLoad(&kextBacklight);
 
 	rad.init();
-
+	shiki.init();
 }
 
 void WEG::deinit() {
 	rad.deinit();
+	shiki.deinit();
 }
 
 void WEG::processKernel(KernelPatcher &patcher) {
@@ -227,10 +228,14 @@ void WEG::processKernel(KernelPatcher &patcher) {
 					resetFramebuffer = FB_COPY;
 			}
 
-			// Note, disabled Optimus will make videoExternal 0, so this case checks for active IGPU only.
-			if (appleBacklightPatch == APPLBKL_DETECT && (devInfo->videoBuiltin == nullptr || extNum > 0)) {
-				// Either a builtin IGPU is not available, or some external GPU is available.
-				kextBacklight.switchOff();
+			if (appleBacklightPatch == APPLBKL_DETECT && devInfo->videoBuiltin != nullptr)
+				WIOKit::getOSDataValue(devInfo->videoBuiltin, "applbkl", appleBacklightPatch);
+
+			if (appleBacklightCustomName == nullptr && devInfo->videoBuiltin != nullptr) {
+				appleBacklightCustomName = OSDynamicCast(OSData, devInfo->videoBuiltin->getProperty("applbkl-name"));
+				appleBacklightCustomData = OSDynamicCast(OSData, devInfo->videoBuiltin->getProperty("applbkl-data"));
+				if (appleBacklightCustomName == nullptr || appleBacklightCustomData == nullptr)
+					appleBacklightCustomName = appleBacklightCustomData = nullptr;
 			}
 
 			for (size_t i = 0; i < extNum; i++) {
@@ -240,6 +245,22 @@ void WEG::processKernel(KernelPatcher &patcher) {
 				// Assume that AMD GPU is the boot display.
 				if (v.vendor == WIOKit::VendorID::ATIAMD && resetFramebuffer == FB_DETECT)
 					resetFramebuffer = FB_ZEROFILL;
+
+				if (appleBacklightPatch == APPLBKL_DETECT)
+					WIOKit::getOSDataValue(v.video, "applbkl", appleBacklightPatch);
+
+				if (appleBacklightCustomName == nullptr) {
+					appleBacklightCustomName = OSDynamicCast(OSData, v.video->getProperty("applbkl-name"));
+					appleBacklightCustomData = OSDynamicCast(OSData, v.video->getProperty("applbkl-data"));
+					if (appleBacklightCustomName == nullptr || appleBacklightCustomData == nullptr)
+						appleBacklightCustomName = appleBacklightCustomData = nullptr;
+				}
+			}
+
+			// Note, disabled Optimus will make videoExternal 0, so this case checks for active IGPU only.
+			if (appleBacklightPatch == APPLBKL_DETECT && (devInfo->videoBuiltin == nullptr || extNum > 0)) {
+				// Either a builtin IGPU is not available, or some external GPU is available.
+				kextBacklight.switchOff();
 			}
 
 			if ((graphicsDisplayPolicyMod & AGDP_DETECT) && isGraphicsPolicyModRequired(devInfo))
@@ -270,6 +291,7 @@ void WEG::processKernel(KernelPatcher &patcher) {
 		}
 
 		rad.processKernel(patcher, devInfo);
+		shiki.processKernel(patcher, devInfo);
 
 		DeviceInfo::deleter(devInfo);
 	}
@@ -729,13 +751,26 @@ bool WEG::wrapApplePanelSetDisplay(IOService *that, IODisplay *display) {
 			panels = OSDynamicCast(OSDictionary, rawPanels);
 
 			if (panels) {
+				const char *customName = nullptr;
+				if (callbackWEG->appleBacklightCustomName != nullptr) {
+					auto length = callbackWEG->appleBacklightCustomName->getLength();
+					const char *customNameBytes = static_cast<const char *>(callbackWEG->appleBacklightCustomName->getBytesNoCopy());
+					if (length > 0 && customNameBytes[length - 1] == '\0')
+						customName = customNameBytes;
+				}
+
 				for (auto &entry : appleBacklightData) {
-					auto pd = OSData::withBytes(entry.deviceData, sizeof(entry.deviceData));
-					if (pd) {
-						panels->setObject(entry.deviceName, pd);
-						// No release required by current AppleBacklight implementation.
+					if (customName != nullptr && strcmp(customName, entry.deviceName) == 0) {
+						panels->setObject(entry.deviceName, callbackWEG->appleBacklightCustomData);
+						DBGLOG("weg", "using custom panel data for %s device", entry.deviceName);
 					} else {
-						SYSLOG("weg", "panel start cannot allocate %s data", entry.deviceName);
+						auto pd = OSData::withBytes(entry.deviceData, sizeof(entry.deviceData));
+						if (pd) {
+							panels->setObject(entry.deviceName, pd);
+							// No release required by current AppleBacklight implementation.
+						} else {
+							SYSLOG("weg", "panel start cannot allocate %s data", entry.deviceName);
+						}
 					}
 				}
 				that->setProperty("ApplePanels", panels);

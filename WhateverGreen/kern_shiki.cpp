@@ -24,22 +24,15 @@ void SHIKI::init() {
 	if (disableShiki)
 		return;
 
-	// Ugly speedhack for different paths on Catalina and others.
 	if (getKernelVersion() >= KernelVersion::Catalina) {
-		for (size_t i = 0; i < ADDPR(procInfoSize); i++) {
-			if (strncmp(ADDPR(procInfo)[i].path, "/Applications/QuickTime Player.app/", strlen("/Applications/QuickTime Player.app/")) == 0)
-				ADDPR(procInfo)[i].section = SectionUnused;
-			else if (strncmp(ADDPR(procInfo)[i].path, "/Applications/iTunes.app/", strlen("/Applications/iTunes.app/")) == 0)
-				ADDPR(procInfo)[i].section = SectionUnused;
-		}
+		procInfo = ADDPR(procInfoModern);
+		procInfoSize = ADDPR(procInfoModernSize);
 	} else {
-		for (size_t i = 0; i < ADDPR(procInfoSize); i++) {
-			if (strncmp(ADDPR(procInfo)[i].path, "/System/Applications/", strlen("/System/Applications/")) == 0)
-				ADDPR(procInfo)[i].section = SectionUnused;
-		}
+		procInfo = ADDPR(procInfoLegacy);
+		procInfoSize = ADDPR(procInfoLegacySize);
 	}
 
-	lilu.onProcLoadForce(ADDPR(procInfo), ADDPR(procInfoSize), nullptr, nullptr, ADDPR(binaryMod), ADDPR(binaryModSize));
+	lilu.onProcLoadForce(procInfo, procInfoSize, nullptr, nullptr, ADDPR(binaryMod), ADDPR(binaryModSize));
 }
 
 void SHIKI::deinit() {
@@ -50,20 +43,16 @@ void SHIKI::processKernel(KernelPatcher &patcher, DeviceInfo *info) {
 	if (disableShiki)
 		return;
 
-	if (info->firmwareVendor == DeviceInfo::FirmwareVendor::Apple) {
-		// DRMI is just fine on Apple hardware
-		disableSection(SectionNDRMI);
-	}
-
 	bool forceOnlineRenderer     = false;
 	bool allowNonBGRA            = false;
 	bool forceCompatibleRenderer = false;
 	bool addExecutableWhitelist  = false;
 	bool replaceBoardID          = false;
 	bool unlockFP10Streaming     = false;
+	bool useHwDrmDecoder         = false;
+	bool useLegacyHwDrmDecoder   = false;
 
 	cpuGeneration = CPUInfo::getGeneration();
-
 
 	auto getBootArgument = [](DeviceInfo *info, const char *name, void *bootarg, int size) {
 		if (PE_parse_boot_argn(name, bootarg, size))
@@ -98,8 +87,13 @@ void SHIKI::processKernel(KernelPatcher &patcher, DeviceInfo *info) {
 		allowNonBGRA            = bootarg & AllowNonBGRA;
 		forceCompatibleRenderer = bootarg & ForceCompatibleRenderer;
 		addExecutableWhitelist  = bootarg & AddExecutableWhitelist;
+		useHwDrmDecoder         = bootarg & UseHwDrmDecoder;
 		replaceBoardID          = bootarg & ReplaceBoardID;
 		unlockFP10Streaming     = bootarg & UnlockFP10Streaming;
+		useLegacyHwDrmDecoder   = bootarg & UseLegacyHwDrmDecoder;
+
+		if (useHwDrmDecoder && (replaceBoardID || addExecutableWhitelist))
+			PANIC("shiki", "Hardware DRM decoder cannot be used with custom board or whitelist");
 	} else {
 		// Starting with 10.13.4 Apple has fixed AppleGVA to no longer require patching for compatible renderer.
 		if ((getKernelVersion() == KernelVersion::HighSierra && getKernelMinorVersion() < 5) ||
@@ -116,12 +110,28 @@ void SHIKI::processKernel(KernelPatcher &patcher, DeviceInfo *info) {
 			}
 		}
 
+		// FairPlay 1.0 DRM is just fine on Apple hardware, as the only reason for it to break is IGPU presence.
+		// For QuickTime movie playback along with TV+ on MacPro5,1 use one of the following:
+		// - OpenCore spoof to iMacPro1,1 (preferred).
+		// - shikigva=160 shiki-id=Mac-7BA5B2D9E42DDD94 without OpenCore.
+		useLegacyHwDrmDecoder = info->firmwareVendor == DeviceInfo::FirmwareVendor::Apple;
+
 		DBGLOG("shiki", "will autodetect autodetect GPU %d whitelist %d", autodetectGFX, addExecutableWhitelist);
 	}
 
-	DBGLOG("shiki", "pre-config: online %d, bgra %d, compat %d, whitelist %d, id %d, stream %d",
+	DBGLOG("shiki", "pre-config: online %d, bgra %d, compat %d, whitelist %d, id %d, stream %d, hwdrm %d",
 		   forceOnlineRenderer, allowNonBGRA, forceCompatibleRenderer, addExecutableWhitelist, replaceBoardID,
-		   unlockFP10Streaming);
+		   unlockFP10Streaming, useHwDrmDecoder);
+
+	// Disable hardware decoder patches when unused
+	if (!useHwDrmDecoder)
+		disableSection(SectionHWDRMID);
+
+	// We do not need NDRMI patches when legacy hardware decoder works.
+	if (useLegacyHwDrmDecoder) {
+		disableSection(SectionNDRMI);
+		disableSection(SectionFCPUID);
+	}
 
 	// Disable unused sections
 	if (!forceOnlineRenderer)
@@ -186,11 +196,17 @@ void SHIKI::processKernel(KernelPatcher &patcher, DeviceInfo *info) {
 			   !disableWhitelist, !disableCompatRenderer, cpuGeneration, hasExternalNVIDIA, hasExternalAMD);
 	}
 
-	if (customBoardID[0]) {
+	if (customBoardID[0] || useHwDrmDecoder) {
 		auto entry = IORegistryEntry::fromPath("/", gIODTPlane);
 		if (entry) {
-			DBGLOG("shiki", "changing shiki-id to %s", customBoardID);
-			entry->setProperty("shiki-id", customBoardID, static_cast<uint32_t>(strlen(customBoardID)+1));
+			if (customBoardID[0]) {
+				DBGLOG("shiki", "changing shiki-id to %s", customBoardID);
+				entry->setProperty("shiki-id", customBoardID, static_cast<uint32_t>(strlen(customBoardID)+1));
+			}
+			if (useHwDrmDecoder) {
+				DBGLOG("shiki", "setting hwdrm-id to iMacPro1,1");
+				entry->setProperty("hwdrm-id", const_cast<char *>("Mac-7BA5B2D9E42DDD94"), static_cast<uint32_t>(sizeof("Mac-7BA5B2D9E42DDD94")));
+			}
 			entry->release();
 		} else {
 			SYSLOG("shiki", "failed to obtain iodt tree");
@@ -199,9 +215,9 @@ void SHIKI::processKernel(KernelPatcher &patcher, DeviceInfo *info) {
 }
 
 void SHIKI::disableSection(uint32_t section) {
-	for (size_t i = 0; i < ADDPR(procInfoSize); i++) {
-		if (ADDPR(procInfo)[i].section == section)
-			ADDPR(procInfo)[i].section = SectionUnused;
+	for (size_t i = 0; i < procInfoSize; i++) {
+		if (procInfo[i].section == section)
+			procInfo[i].section = SectionUnused;
 	}
 
 	for (size_t i = 0; i < ADDPR(binaryModSize); i++) {

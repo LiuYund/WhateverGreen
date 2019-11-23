@@ -10,6 +10,8 @@
 		1C748C2D1C21952C0024EED2 /* kern_start.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1C748C2C1C21952C0024EED2 /* kern_start.cpp */; };
 		1C9CB7B01C789FF500231E41 /* kern_rad.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1C9CB7AE1C789FF500231E41 /* kern_rad.cpp */; };
 		1C9CB7B11C789FF500231E41 /* kern_rad.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 1C9CB7AF1C789FF500231E41 /* kern_rad.hpp */; };
+		6AD05D072389A31D00F699A3 /* kern_shiki.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 6AD05D052389A31D00F699A3 /* kern_shiki.hpp */; };
+		6AD05D082389A31D00F699A3 /* kern_shiki.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6AD05D062389A31D00F699A3 /* kern_shiki.cpp */; };
 		CE405EC91E49DD9700AA0B3D /* libkmod.a in Frameworks */ = {isa = PBXBuildFile; fileRef = CE405EC71E49DD7100AA0B3D /* libkmod.a */; };
 		CE405ED91E4A080700AA0B3D /* plugin_start.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CE405ED81E4A080700AA0B3D /* plugin_start.cpp */; };
 		CE7FC0C420F6823100138088 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = CE7FC0B820F681D600138088 /* main.mm */; };
@@ -58,6 +60,8 @@
 		1C748C2E1C21952C0024EED2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1C9CB7AE1C789FF500231E41 /* kern_rad.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = kern_rad.cpp; sourceTree = "<group>"; };
 		1C9CB7AF1C789FF500231E41 /* kern_rad.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = kern_rad.hpp; sourceTree = "<group>"; };
+		6AD05D052389A31D00F699A3 /* kern_shiki.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = kern_shiki.hpp; sourceTree = "<group>"; };
+		6AD05D062389A31D00F699A3 /* kern_shiki.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = kern_shiki.cpp; sourceTree = "<group>"; };
 		CE405EBA1E49DD7100AA0B3D /* kern_compression.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = kern_compression.hpp; sourceTree = "<group>"; };
 		CE405EBB1E49DD7100AA0B3D /* kern_disasm.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = kern_disasm.hpp; sourceTree = "<group>"; };
 		CE405EBC1E49DD7100AA0B3D /* kern_file.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = kern_file.hpp; sourceTree = "<group>"; };
@@ -136,6 +140,8 @@
 				1C9CB7AF1C789FF500231E41 /* kern_rad.hpp */,
 				CEA03B5C20EE825A00BA842F /* kern_weg.cpp */,
 				CEA03B5D20EE825A00BA842F /* kern_weg.hpp */,
+				6AD05D062389A31D00F699A3 /* kern_shiki.cpp */,
+				6AD05D052389A31D00F699A3 /* kern_shiki.hpp */,
 				CE8190A11F1E3ECE00DE95F4 /* kern_model.cpp */,
 				CE7FC0C920F682A200138088 /* kern_resources.cpp */,
 				CE7FC0C820F682A200138088 /* kern_resources.hpp */,
@@ -209,6 +215,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CEA03B5F20EE825A00BA842F /* kern_weg.hpp in Headers */,
+				6AD05D072389A31D00F699A3 /* kern_shiki.hpp in Headers */,
 				CE7FC0CA20F682A300138088 /* kern_resources.hpp in Headers */,
 				1C9CB7B11C789FF500231E41 /* kern_rad.hpp in Headers */,
 				CEB402A61F17F5C400716912 /* kern_con.hpp in Headers */,
@@ -337,6 +344,7 @@
 				CE405ED91E4A080700AA0B3D /* plugin_start.cpp in Sources */,
 				CE7FC0CB20F682A300138088 /* kern_resources.cpp in Sources */,
 				1C748C2D1C21952C0024EED2 /* kern_start.cpp in Sources */,
+				6AD05D082389A31D00F699A3 /* kern_shiki.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
