@@ -39,6 +39,44 @@ void SHIKI::deinit() {
 
 }
 
+bool SHIKI::getBootArgument(DeviceInfo *info, const char *name, void *bootarg, int size) {
+	if (PE_parse_boot_argn(name, bootarg, size))
+		return true;
+
+	for (size_t i = 0; i < info->videoExternal.size(); i++) {
+		auto prop = OSDynamicCast(OSData, info->videoExternal[i].video->getProperty(name));
+		auto propSize = prop ? prop->getLength() : 0;
+		if (propSize > 0 && propSize <= size) {
+			lilu_os_memcpy(bootarg, prop->getBytesNoCopy(), propSize);
+			memset(static_cast<uint8_t *>(bootarg) + propSize, 0, size - propSize);
+			return true;
+		}
+	}
+
+	if (info->videoBuiltin) {
+		auto prop = OSDynamicCast(OSData, info->videoBuiltin->getProperty(name));
+		auto propSize = prop ? prop->getLength() : 0;
+		if (propSize > 0 && propSize <= size) {
+			lilu_os_memcpy(bootarg, prop->getBytesNoCopy(), propSize);
+			memset(static_cast<uint8_t *>(bootarg) + propSize, 0, size - propSize);
+			return true;
+		}
+	}
+
+	return false;
+}
+
+UserPatcher::BinaryModPatch *SHIKI::getPatchSection(uint32_t section) {
+	for (size_t i = 0; i < ADDPR(binaryModSize); i++) {
+		auto patches = ADDPR(binaryMod)[i].patches;
+		for (size_t j = 0; j < ADDPR(binaryMod)[i].count; j++)
+			if (patches[j].section == section)
+				return &patches[j];
+	}
+	SYSLOG("shiki", "failed to find patch for section %u", section);
+	return nullptr;
+}
+
 void SHIKI::processKernel(KernelPatcher &patcher, DeviceInfo *info) {
 	if (disableShiki)
 		return;
@@ -51,35 +89,14 @@ void SHIKI::processKernel(KernelPatcher &patcher, DeviceInfo *info) {
 	bool useHwDrmStreaming       = false;
 	bool useHwDrmDecoder         = false;
 	bool useLegacyHwDrmDecoder   = false;
+	bool useSwDrmDecoder         = false;
 
 	cpuGeneration = CPUInfo::getGeneration();
-
-	auto getBootArgument = [](DeviceInfo *info, const char *name, void *bootarg, int size) {
-		if (PE_parse_boot_argn(name, bootarg, size))
-			return true;
-
-		for (size_t i = 0; i < info->videoExternal.size(); i++) {
-			auto prop = OSDynamicCast(OSData, info->videoExternal[i].video->getProperty(name));
-			auto propSize = prop ? prop->getLength() : 0;
-			if (propSize > 0 && propSize <= size) {
-				lilu_os_memcpy(bootarg, prop->getBytesNoCopy(), propSize);
-				memset(static_cast<uint8_t *>(bootarg) + propSize, 0, size - propSize);
-				return true;
-			}
-		}
-
-		if (info->videoBuiltin) {
-			auto prop = OSDynamicCast(OSData, info->videoBuiltin->getProperty(name));
-			auto propSize = prop ? prop->getLength() : 0;
-			if (propSize > 0 && propSize <= size) {
-				lilu_os_memcpy(bootarg, prop->getBytesNoCopy(), propSize);
-				memset(static_cast<uint8_t *>(bootarg) + propSize, 0, size - propSize);
-				return true;
-			}
-		}
-
-		return false;
-	};
+	if (!WIOKit::getComputerInfo(reinterpret_cast<char *>(selfMacModel), sizeof(selfMacModel),
+								 reinterpret_cast<char *>(selfBoardId), sizeof(selfBoardId)) || selfMacModel[0] == '\0' || selfBoardId[0] == '\0') {
+		SYSLOG("shiki", "Cannot obtain current board-id %s / mac model %s, will fail", selfBoardId, selfMacModel);
+		// Should we PANIC here?
+	}
 
 	int bootarg {0};
 	if (getBootArgument(info, "shikigva", &bootarg, sizeof(bootarg))) {
@@ -91,9 +108,12 @@ void SHIKI::processKernel(KernelPatcher &patcher, DeviceInfo *info) {
 		replaceBoardID          = bootarg & ReplaceBoardID;
 		useHwDrmStreaming       = bootarg & UseHwDrmStreaming;
 		useLegacyHwDrmDecoder   = bootarg & UseLegacyHwDrmDecoder;
+		useSwDrmDecoder         = bootarg & UseSwDrmDecoder;
 
 		if (useHwDrmDecoder && (replaceBoardID || addExecutableWhitelist))
 			PANIC("shiki", "Hardware DRM decoder cannot be used with custom board or whitelist");
+		if (useSwDrmDecoder && useHwDrmDecoder)
+			PANIC("shiki", "Hardware and software DRM decoders cannot be used at the same time");
 	} else {
 		// Starting with 10.13.4 Apple has fixed AppleGVA to no longer require patching for compatible renderer.
 		if ((getKernelVersion() == KernelVersion::HighSierra && getKernelMinorVersion() < 5) ||
@@ -119,24 +139,39 @@ void SHIKI::processKernel(KernelPatcher &patcher, DeviceInfo *info) {
 		DBGLOG("shiki", "will autodetect autodetect GPU %d whitelist %d", autodetectGFX, addExecutableWhitelist);
 	}
 
-	DBGLOG("shiki", "pre-config: online %d, bgra %d, compat %d, whitelist %d, id %d, stream %d, hwdrm %d",
+	DBGLOG("shiki", "pre-config: online %d, bgra %d, compat %d, whitelist %d, id %d, stream %d, hwdrm %d swdrm %d",
 		   forceOnlineRenderer, allowNonBGRA, forceCompatibleRenderer, addExecutableWhitelist, replaceBoardID,
-		   useHwDrmStreaming, useHwDrmDecoder);
+		   useHwDrmStreaming, useHwDrmDecoder, useSwDrmDecoder);
 
 	// Disable hardware decoder patches when unused
 	if (!useHwDrmDecoder) {
 		disableSection(SectionHWDRMID);
 		disableSection(SectionLEGACYHWDRMID);
-	} else if (cpuGeneration >= CPUInfo::CpuGeneration::Haswell) {
-		// Only Ivy bridge CPUs need LSKD/LSKDMSE CPUID upgrade.
-		disableSection(SectionLEGACYHWDRMID);
 	}
 
-	// We do not need NDRMI patches when legacy hardware decoder works.
+	// Disable hardware decoder LSKD/LSKDMSE CPUID upgrade patches on Haswell and above (they are not needed).
+	if (useHwDrmDecoder && cpuGeneration >= CPUInfo::CpuGeneration::Haswell)
+		disableSection(SectionLEGACYHWDRMID);
+
+	// Disable legacy software decoder unlock patches when legacy hardware decoder is used (and believed to work).
 	if (useLegacyHwDrmDecoder) {
 		disableSection(SectionNDRMI);
 		disableSection(SectionFCPUID);
+		disableSection(SectionEXTSLOTS);
 	}
+
+	// Loosen obfuscation by setting IsSlotted.
+	if (!useLegacyHwDrmDecoder) {
+		auto slotsPatch = getPatchSection(SectionEXTSLOTS);
+		if (slotsPatch) {
+			PANIC_COND(slotsPatch->size != sizeof (selfMacModel), "shiki", "invalid slotsPatch->size mismatch with selfMacModel");
+			slotsPatch->replace = selfMacModel;
+		}
+	}
+
+	// Disable legacy software decoder unlock patches unless it is explicitly requested.
+	if (!useSwDrmDecoder)
+		disableSection(SectionLEGACYSWDRMID);
 
 	// Disable unused sections
 	if (!forceOnlineRenderer)
@@ -163,34 +198,16 @@ void SHIKI::processKernel(KernelPatcher &patcher, DeviceInfo *info) {
 		disableSection(SectionBOARDID);
 	}
 
-	if (!useHwDrmStreaming) {
+	if (!useHwDrmStreaming)
 		disableSection(SectionNSTREAM);
-	} else if (useHwDrmStreaming && useHwDrmDecoder) {
-		// Let's look the patch up first.
-		UserPatcher::BinaryModPatch *hwDrmPatch {nullptr};
-		for (size_t i = 0; i < ADDPR(binaryModSize); i++) {
-			auto patches = ADDPR(binaryMod)[i].patches;
-			for (size_t j = 0; j < ADDPR(binaryMod)[i].count; j++) {
-				if (patches[j].section == SectionHWDRMID) {
-					hwDrmPatch = &patches[j];
-					DBGLOG("shiki", "found hwdrm-id at %lu:%lu with size %lu", i, j, hwDrmPatch->size);
-					break;
-				}
-			}
-		}
 
+	if (useHwDrmStreaming && useHwDrmDecoder) {
+		auto hwDrmPatch = getPatchSection(SectionHWDRMID);
 		if (hwDrmPatch) {
-			static uint8_t iMacProBoardId[21] = {"Mac-7BA5B2D9E42DDD94"};
-			static uint8_t selfBoardId[21] = {};
-
-			if (WIOKit::getComputerInfo(nullptr, 0, reinterpret_cast<char *>(selfBoardId), sizeof(selfBoardId)) && selfBoardId[0] != '\0') {
-				hwDrmPatch->find = iMacProBoardId;
-				hwDrmPatch->replace = selfBoardId;
-				hwDrmPatch->size = sizeof(selfBoardId);
-				DBGLOG("shiki", "using partial hwdrm-id patch from %s to %s", reinterpret_cast<char *>(iMacProBoardId), reinterpret_cast<char *>(selfBoardId));
-			}
-		} else {
-			SYSLOG("shiki", "no hwdrm-id patch found");
+			hwDrmPatch->find = iMacProBoardId;
+			hwDrmPatch->replace = selfBoardId;
+			hwDrmPatch->size = sizeof(selfBoardId);
+			DBGLOG("shiki", "using partial hwdrm-id patch from %s to %s", reinterpret_cast<char *>(iMacProBoardId), reinterpret_cast<char *>(selfBoardId));
 		}
 	}
 
