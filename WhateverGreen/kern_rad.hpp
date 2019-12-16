@@ -295,6 +295,11 @@ private:
 	bool fixConfigName {false};
 
 	/**
+	 *  Enable gva decoding and encoding support
+	 */
+	bool enableGvaSupport {false};
+
+	/**
 	 *  Boot ATI/AMD graphics without acceleration
 	 */
 	bool forceVesaMode {false};
@@ -423,6 +428,13 @@ private:
 	 *  @param size     kinfo memory size
 	 */
 	void processHardwareKext(KernelPatcher &patcher, size_t hwIndex, mach_vm_address_t address, size_t size);
+
+	/**
+	 *  Update IOAccelConfig with a GVA properties
+	 *
+	 *  @param accelService IOAccelerator service
+	 */
+	void setGvaProperties(IOService *accelService);
 
 	/**
 	 *  Update IOAccelConfig with a real GPU model name
