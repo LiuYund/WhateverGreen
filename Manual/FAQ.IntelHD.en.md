@@ -1576,6 +1576,8 @@ The actual connection may be of any type (HDMI / DVI / DP), but for the digital 
   
   
 ## Custom framebuffer and connectors patches with WEG  
+Credit by [@headkaze](https://github.com/headkaze)
+
 In most cases, no patches are required!  
 In 10.14 for SKL and newer it is impossible to obtain information about the framebuffers and connectors directly from the kext binary - it is necessary to dump the binary from memory, so binary framebuffer patches in Clover are impossible. It is, however, possible to make semantic (prefered) and binary patches by using *WEG*. On older OS'es and older IGPU - this works too. By default, the current framebuffer is patched.  
 Patches are placed in the `Properties` section of IGPU.  
@@ -1668,6 +1670,8 @@ Or instead of this property, use the boot-arg `-wegnoegpu`
 ## Fix the invalid maximum link rate issue on some laptops (Dell XPS 15 9570, etc.)
 Add the `enable-dpcd-max-link-rate-fix` property to `IGPU`, otherwise a kernel panic would happen due to a division-by-zero.  
 Or instead of this property, use the boot-arg `-igfxmlr`.  
+Starting from v1.3.7, it also fixes the invalid max link rate value read from the extended DPCD buffer.  
+This fixes the kernel panic on new laptops, such as Dell Inspiron 7590 with Sharp display.  
 ![](https://github.com/acidanthera/WhateverGreen/blob/master/Manual/Img/dpcd_mlr.png)  
 You could also manually specify a maximum link rate value via the `dpcd-max-link-rate` for the builtin display.  
 Typically use `0x14` for 4K display and `0x0A` for 1080p display.  
