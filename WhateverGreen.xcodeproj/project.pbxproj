@@ -88,10 +88,6 @@
 		CEA03B5D20EE825A00BA842F /* kern_weg.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = kern_weg.hpp; sourceTree = "<group>"; };
 		CEB402A41F17F5C400716912 /* kern_con.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = kern_con.hpp; sourceTree = "<group>"; };
 		CEB402A71F181D8300716912 /* kern_atom.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = kern_atom.hpp; sourceTree = "<group>"; };
-		CEC8E2EE20F765E700D3CA3A /* kern_cdf.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = kern_cdf.cpp; sourceTree = "<group>"; };
-		CEC8E2EF20F765E700D3CA3A /* kern_cdf.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = kern_cdf.hpp; sourceTree = "<group>"; };
-		CEEF190A239CFDB1005B3BE8 /* FAQ.Chart.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = FAQ.Chart.md; sourceTree = "<group>"; };
-		E2BE6CE120FB209400ED2D55 /* kern_fb.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = kern_fb.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -209,22 +205,6 @@
 				CE7FC0C720F6829500138088 /* Patches.plist */,
 			);
 			path = Resources;
-			sourceTree = "<group>";
-		};
-		CEAEA1151F26905A00918651 /* Manual */ = {
-			isa = PBXGroup;
-			children = (
-				CEEF190A239CFDB1005B3BE8 /* FAQ.Chart.md */,
-				CE7FC0CD20F687F500138088 /* FAQ.GeForce.en.md */,
-				CEAEA1171F26905A00918651 /* FAQ.Radeon.en.md */,
-				CEAEA1181F26905A00918651 /* FAQ.Radeon.ru.md */,
-				CE7FC0CE20F6882400138088 /* FAQ.Shiki.en.md */,
-				CE7FC0CF20F6882400138088 /* FAQ.Shiki.ru.md */,
-				CE7FC0D020F6882400138088 /* FAQ.Shiki.zh_CN.md */,
-				CE271B4C1F319BD000D2BC1C /* reference.cpp */,
-				CEAEA1191F26905A00918651 /* Sample.dsl */,
-			);
-			path = Manual;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -518,7 +498,7 @@
 					"-fno-asynchronous-unwind-tables",
 				);
 				OTHER_LDFLAGS = "-static";
-				PRODUCT_BUNDLE_IDENTIFIER = "$(MODULE_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = as.bugprogrammer.WhateverGreen;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -564,7 +544,7 @@
 					"-fno-asynchronous-unwind-tables",
 				);
 				OTHER_LDFLAGS = "-static";
-				PRODUCT_BUNDLE_IDENTIFIER = "$(MODULE_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = as.bugprogrammer.WhateverGreen;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRIP_STYLE = "non-global";
 				WRAPPER_EXTENSION = kext;
@@ -699,7 +679,7 @@
 					"-fno-sanitize=function",
 				);
 				OTHER_LDFLAGS = "-static";
-				PRODUCT_BUNDLE_IDENTIFIER = "$(MODULE_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = as.bugprogrammer.WhateverGreen;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = kext;
 			};
